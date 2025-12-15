@@ -1,6 +1,6 @@
 ARG pkg=rocket-agentx
 
-FROM rust:1.78.0-alpine3.18 AS builder
+FROM rust:1.91.0-alpine3.22 AS builder
 
 WORKDIR /build
 
@@ -14,7 +14,7 @@ ENV RUSTFLAGS="-C target-feature=-crt-static"
 RUN echo -e "[source.crates-io]\nreplace-with = \"aliyun\"\n\n[source.aliyun]\nregistry = \"sparse+https://mirrors.aliyun.com/crates.io-index/\"" >> $CARGO_HOME/config.toml \
     && cargo build --release
 
-FROM alpine:3.18
+FROM alpine:3.22
 
 WORKDIR /app
 
