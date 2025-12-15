@@ -12,7 +12,8 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 ENV RUSTFLAGS="-C target-feature=-crt-static"
 
 RUN echo -e "[source.crates-io]\nreplace-with = \"aliyun\"\n\n[source.aliyun]\nregistry = \"sparse+https://mirrors.aliyun.com/crates.io-index/\"" >> $CARGO_HOME/config.toml \
-    && cargo build --release
+    && cargo build --release \
+    && objcopy --compress-debug-sections ./target/release/$pkg ./main
 
 FROM alpine:3.22
 
@@ -25,7 +26,7 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
     && echo "Asia/Shanghai" > /etc/timezone
 
-COPY --from=builder /build/target/release/$pkg ./main
+COPY --from=builder /build/main ./
 
 COPY --from=builder /build/Rocket.toml ./
 
