@@ -1,8 +1,8 @@
 use crate::{
     entities::{datetime::DateTime, message::Message},
-    services::{Inject, Service},
+    services::{models::Model, Service},
 };
-use agentx::{Completion, StreamingChatModel};
+use agentx::Completion;
 use chrono::Local;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -20,7 +20,6 @@ pub enum Status {
 pub struct Task {
     pub id: String,
     pub status: Status,
-    pub model: Option<String>,
     pub message: Message,
     pub completion: Option<Completion>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -31,11 +30,10 @@ pub struct Task {
 }
 
 impl Task {
-    pub fn create(model: Option<String>, message: Message) -> Self {
+    pub fn create(message: Message) -> Self {
         Self {
             id: Uuid::new_v4().to_string(),
             status: Status::Pending,
-            model,
             message,
             completion: None,
             err_msg: None,
@@ -44,11 +42,8 @@ impl Task {
         }
     }
 
-    pub async fn execute<T: StreamingChatModel + Inject>(&mut self, model: &Service<T>) -> () {
-        match model
-            .completion(self.model.as_ref(), self.message.clone())
-            .await
-        {
+    pub async fn execute<T: Model>(&mut self, model: &Service<T>) -> () {
+        match model.completion(self.message.clone()).await {
             Ok(completion) => {
                 self.status = Status::Finished;
                 self.completion = Some(completion);

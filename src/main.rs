@@ -36,7 +36,7 @@ mod tests {
     fn test_chat() {
         let client = Client::tracked(rocket()).unwrap();
         let response = client
-            .post(uri!("/chat", chat::completion(model = _)))
+            .post(uri!("/chat", chat::completion))
             .json(&Message {
                 role: Some(Role::User),
                 text: Some("你是谁".to_string()),
@@ -57,10 +57,7 @@ mod tests {
     fn test_task() {
         let client = Client::tracked(rocket()).unwrap();
         let response = client
-            .post(uri!(
-                "/task",
-                task::create(model = Some("qwen-vl-plus-2025-08-15"))
-            ))
+            .post(uri!("/task", task::create))
             .json(&Message {
                 role: None,
                 text: Some("这是什么".to_string()),

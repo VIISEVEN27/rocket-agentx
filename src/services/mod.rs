@@ -1,3 +1,7 @@
+pub mod executor;
+pub mod models;
+pub mod oss;
+
 use std::ops::Deref;
 
 use anyhow::anyhow;
@@ -10,10 +14,6 @@ use rocket::{
 use state::TypeMap;
 
 use crate::entities::config::{Config, ServiceConfig};
-
-pub mod executor;
-pub mod model;
-pub mod oss;
 
 pub trait Inject: Send + Sync {
     fn new(config: &ServiceConfig) -> Self;

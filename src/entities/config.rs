@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::Deserialize;
 
 #[derive(Deserialize, Clone)]
@@ -7,7 +9,7 @@ pub struct Config {
 
 #[derive(Deserialize, Clone)]
 pub struct ServiceConfig {
-    pub model: ModelConfig,
+    pub models: HashMap<String, ModelConfig>,
     pub executor: ExecutorConfig,
     pub oss: OSSConfig,
 }

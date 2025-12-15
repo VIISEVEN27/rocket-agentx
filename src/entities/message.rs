@@ -28,6 +28,12 @@ pub struct Message {
     pub context: Option<Vec<Message>>,
 }
 
+impl Message {
+    pub fn only_text(&self) -> bool {
+        self.images.is_none() && self.videos.is_none()
+    }
+}
+
 impl From<Message> for agentx::Message {
     fn from(message: Message) -> Self {
         let Message {

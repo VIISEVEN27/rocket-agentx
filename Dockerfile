@@ -6,19 +6,19 @@ WORKDIR /build
 
 COPY . .
 
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories \
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
     && apk add --update-cache --no-cache build-base openssl-dev cmake
 
 ENV RUSTFLAGS="-C target-feature=-crt-static"
 
-RUN echo -e "[source.crates-io]\nregistry = \"https://github.com/rust-lang/crates.io-index\"\nreplace-with = 'tuna'\n\n[source.tuna]\nregistry = \"https://mirrors.tuna.tsinghua.edu.cn/git/crates.io-index.git\"" >> $CARGO_HOME/config.toml \
+RUN echo -e "[source.crates-io]\nreplace-with = \"aliyun\"\n\n[source.aliyun]\nregistry = \"sparse+https://mirrors.aliyun.com/crates.io-index/\"" >> $CARGO_HOME/config.toml \
     && cargo build --release
 
 FROM alpine:3.18
 
 WORKDIR /app
 
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories \
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
     && apk update --quiet \
     && apk add --no-cache libgcc openssl tzdata
 
