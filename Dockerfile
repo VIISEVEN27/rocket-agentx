@@ -25,7 +25,7 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
     && echo "Asia/Shanghai" > /etc/timezone
 
-COPY --from=builder /build/target/release/$pkg ./
+COPY --from=builder /build/target/release/$pkg ./main
 
 COPY --from=builder /build/Rocket.toml ./
 
