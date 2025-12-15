@@ -1,0 +1,32 @@
+ARG pkg=rocket-agentx
+
+FROM rust:1.78.0-alpine3.18 AS builder
+
+WORKDIR /build
+
+COPY . .
+
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories \
+    && apk add --update-cache --no-cache build-base openssl-dev cmake
+
+ENV RUSTFLAGS="-C target-feature=-crt-static"
+
+RUN echo -e "[source.crates-io]\nregistry = \"https://github.com/rust-lang/crates.io-index\"\nreplace-with = 'tuna'\n\n[source.tuna]\nregistry = \"https://mirrors.tuna.tsinghua.edu.cn/git/crates.io-index.git\"" >> $CARGO_HOME/config.toml \
+    && cargo build --release
+
+FROM alpine:3.18
+
+WORKDIR /app
+
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories \
+    && apk update --quiet \
+    && apk add --no-cache libgcc openssl tzdata
+
+RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo "Asia/Shanghai" > /etc/timezone
+
+COPY --from=builder /build/target/release/$pkg ./
+
+COPY --from=builder /build/Rocket.toml ./
+
+ENTRYPOINT ["./main"]

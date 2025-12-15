@@ -1,0 +1,22 @@
+[default]
+address = "0.0.0.0"
+
+[default.databases.tasks]
+url = "redis://:123456@127.0.0.1:6379/0"
+
+[default.services.model]
+model = "qwen-turbo-latest"
+base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+api_key = ""
+
+[default.services.executor]
+num_workers = 8
+lifetime = 30
+expiration = 86400
+
+[default.services.oss]
+prefix = "/"
+bucket = ""
+endpoint = "oss-cn-hangzhou.aliyuncs.com"
+access_key_id = ""
+access_key_secret = ""
