@@ -76,10 +76,10 @@ impl Executor {
         task.status = Status::Running;
         self.set(conn, &task).await?;
         if task.message.only_text() {
-            let model = Service::<Qwen3VL>::inject(&self.config);
+            let model = Service::<Qwen3>::inject(&self.config);
             task.execute(model).await;
         } else {
-            let model = Service::<Qwen3>::inject(&self.config);
+            let model = Service::<Qwen3VL>::inject(&self.config);
             task.execute(model).await;
         }
         self.set(conn, &task).await?;
@@ -100,13 +100,13 @@ impl Executor {
                 if task.status == Status::Finished || task.status == Status::Failed {
                     return Ok(task);
                 }
+                if timeout > 0 && now.elapsed().as_secs() >= timeout {
+                    return Ok(task);
+                }
+                interval.tick().await;
             } else {
                 return Err(anyhow!("Task '{task_id}' not existed"));
             }
-            if timeout > 0 && now.elapsed().as_secs() >= timeout {
-                return Err(anyhow!("Timeout '{timeout}s' exceeded"));
-            }
-            interval.tick().await;
         }
     }
 
