@@ -61,7 +61,7 @@ impl From<Message> for agentx::Message {
                 .content(content)
                 .into()
         } else {
-            agentx::Message::text(role.unwrap_or(Role::User), text.unwrap())
+            agentx::Message::text(role.unwrap_or(Role::User), text.unwrap_or_default())
         }
     }
 }

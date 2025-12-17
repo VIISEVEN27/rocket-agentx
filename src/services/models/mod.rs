@@ -45,10 +45,14 @@ impl<T: Model> Inject for T {
 
 impl<M: Model> Service<M> {
     pub async fn completion(&self, message: Message) -> anyhow::Result<Completion> {
-        self.0.completion(&message.into()).await
+        self.0
+            .completion(&message.into(), ModelOptions::default())
+            .await
     }
 
     pub async fn text_stream(&self, message: Message) -> anyhow::Result<Stream<String>> {
-        self.0.text_stream(&message.into()).await
+        self.0
+            .text_stream(&message.into(), ModelOptions::default())
+            .await
     }
 }

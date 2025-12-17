@@ -1,5 +1,5 @@
 use crate::databases::Tasks;
-use crate::entities::config::ServiceConfig;
+use crate::entities::config::{ExecutorConfig, ServiceConfig};
 use crate::entities::task::{Status, Task};
 use crate::services::models::{Qwen3, Qwen3VL};
 use crate::services::{Inject, Service};
@@ -14,13 +14,13 @@ use tokio::time;
 
 #[derive(Clone)]
 pub struct Executor {
-    config: Arc<ServiceConfig>,
+    config: Arc<ExecutorConfig>,
 }
 
 impl Inject for Executor {
     fn new(config: &ServiceConfig) -> Self {
         Self {
-            config: Arc::new(config.clone()),
+            config: Arc::new(config.executor.clone()),
         }
     }
 }
@@ -32,8 +32,7 @@ impl Executor {
     pub async fn submit(&self, mut conn: Connection<Tasks>, task: &Task) -> anyhow::Result<()> {
         self.set(&mut conn, task).await?;
         let _: () = conn.lpush(PENDING_QUEUE, &task.id).await?;
-        let semaphore =
-            SEMAPHORE.get_or_init(|| Arc::new(Semaphore::new(self.config.executor.num_workers)));
+        let semaphore = SEMAPHORE.get_or_init(|| Arc::new(Semaphore::new(self.config.num_workers)));
         if let Ok(permit) = semaphore.try_acquire() {
             let executor = self.clone();
             tokio::spawn(async move {
@@ -56,10 +55,7 @@ impl Executor {
 
     async fn consume(&self, conn: &mut Connection<Tasks>) -> anyhow::Result<Option<Task>> {
         if let Some((_, task_id)) = conn
-            .brpop::<&str, Option<((), String)>>(
-                PENDING_QUEUE,
-                self.config.executor.lifetime as f64,
-            )
+            .brpop::<&str, Option<((), String)>>(PENDING_QUEUE, self.config.lifetime as f64)
             .await?
         {
             if let Some(task) = self.get(conn, &task_id).await? {
@@ -76,10 +72,10 @@ impl Executor {
         task.status = Status::Running;
         self.set(conn, &task).await?;
         if task.message.only_text() {
-            let model = Service::<Qwen3>::inject(&self.config);
+            let model = Service::<Qwen3>::inject();
             task.execute(model).await;
         } else {
-            let model = Service::<Qwen3VL>::inject(&self.config);
+            let model = Service::<Qwen3VL>::inject();
             task.execute(model).await;
         }
         self.set(conn, &task).await?;
@@ -127,7 +123,7 @@ impl Executor {
             .set_ex(
                 &task.id,
                 serde_json::to_string(task)?,
-                self.config.executor.expiration,
+                self.config.expiration,
             )
             .await?;
         Ok(())

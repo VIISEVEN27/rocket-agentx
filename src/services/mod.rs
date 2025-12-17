@@ -11,7 +11,7 @@ use rocket::{
     request::{FromRequest, Outcome},
     Request, State,
 };
-use state::TypeMap;
+use state::{InitCell, TypeMap};
 
 use crate::entities::config::{Config, ServiceConfig};
 
@@ -24,19 +24,17 @@ pub trait Inject: Send + Sync {
 pub struct Service<T: Inject>(T);
 
 static SERVICES: TypeMap![Send + Sync] = <TypeMap![Send + Sync]>::new();
+static SERVICE_CONFIG: InitCell<ServiceConfig> = InitCell::new();
 
 impl<T: Inject> Service<T> {
-    fn new(config: &ServiceConfig) -> Self {
-        Self(T::new(config))
-    }
-
-    fn register(config: &ServiceConfig) -> &'static Self {
+    fn register() -> &'static Self {
+        let config = SERVICE_CONFIG.get();
         SERVICES.set(T::new(config));
         Self::ref_cast(SERVICES.get())
     }
 
-    fn inject(config: &ServiceConfig) -> &'static Self {
-        SERVICES.try_get().unwrap_or_else(|| Self::register(config))
+    fn inject() -> &'static Self {
+        SERVICES.try_get().unwrap_or_else(|| Self::register())
     }
 }
 
@@ -45,24 +43,6 @@ impl<T: Inject> Deref for Service<T> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-#[rocket::async_trait]
-impl<'r, T: Inject> FromRequest<'r> for Service<T> {
-    type Error = anyhow::Error;
-
-    async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        let config = match request.guard::<&State<Config>>().await {
-            Outcome::Success(config) => config,
-            _ => {
-                return Outcome::Error((
-                    Status::InternalServerError,
-                    anyhow!("State 'Config' not existed"),
-                ));
-            }
-        };
-        Outcome::Success(Self::new(&config.services))
     }
 }
 
@@ -80,6 +60,7 @@ impl<'r, T: Inject> FromRequest<'r> for &'static Service<T> {
                 ));
             }
         };
-        Outcome::Success(Service::inject(&config.services))
+        SERVICE_CONFIG.set(config.services.clone());
+        Outcome::Success(Service::inject())
     }
 }
