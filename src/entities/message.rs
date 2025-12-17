@@ -44,19 +44,19 @@ impl From<Message> for agentx::Message {
             ..
         } = message;
         if images.is_some() || videos.is_some() {
-            let content: Vec<Media> = if let Some(images) = images {
-                images.into_iter().map(Media::ImageUrl).collect()
-            } else if let Some(videos) = videos {
-                videos
-                    .into_iter()
-                    .map(|video| match video {
-                        Video::Url(url) => Media::VideoUrl(url),
-                        Video::Images(urls) => Media::Video(urls),
-                    })
-                    .collect()
-            } else {
-                unreachable!();
-            };
+            let mut content = Vec::new();
+            if let Some(text) = text {
+                content.push(Media::Text(text));
+            }
+            if let Some(images) = images {
+                content.extend(images.into_iter().map(Media::ImageUrl));
+            }
+            if let Some(videos) = videos {
+                content.extend(videos.into_iter().map(|video| match video {
+                    Video::Url(url) => Media::VideoUrl(url),
+                    Video::Images(urls) => Media::Video(urls),
+                }))
+            }
             agentx::Message::media(role.unwrap_or(Role::User))
                 .content(content)
                 .into()
