@@ -51,16 +51,18 @@ impl<'r, T: Inject> FromRequest<'r> for &'static Service<T> {
     type Error = anyhow::Error;
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-        let config = match request.guard::<&State<Config>>().await {
-            Outcome::Success(config) => config,
-            _ => {
-                return Outcome::Error((
-                    Status::InternalServerError,
-                    anyhow!("State 'Config' not existed"),
-                ));
-            }
-        };
-        SERVICE_CONFIG.set(config.services.clone());
+        if SERVICE_CONFIG.try_get().is_none() {
+            let config = match request.guard::<&State<Config>>().await {
+                Outcome::Success(config) => config,
+                _ => {
+                    return Outcome::Error((
+                        Status::InternalServerError,
+                        anyhow!("State 'Config' not existed"),
+                    ));
+                }
+            };
+            SERVICE_CONFIG.set(config.services.clone());
+        }
         Outcome::Success(Service::inject())
     }
 }

@@ -24,7 +24,7 @@ pub struct ModelConfig {
 #[derive(Deserialize, Clone)]
 pub struct ExecutorConfig {
     pub num_workers: usize,
-    pub lifetime: u64,
+    pub timeout: u64,
     pub expiration: u64,
 }
 

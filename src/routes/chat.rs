@@ -16,10 +16,11 @@ pub async fn completion(
     qwen3vl: &Service<Qwen3VL>,
 ) -> Json<Response<Completion>> {
     Response::invoke(async {
+        let message = message.into_inner();
         let completion = if message.only_text() {
-            qwen3.completion(message.into_inner()).await?
+            qwen3.completion(&message.into()).await?
         } else {
-            qwen3vl.completion(message.into_inner()).await?
+            qwen3vl.completion(&message.into()).await?
         };
         Ok(completion)
     })
@@ -33,10 +34,11 @@ pub async fn stream(
     qwen3: &Service<Qwen3>,
     qwen3vl: &Service<Qwen3VL>,
 ) -> Result<TextStream![String], status::Custom<String>> {
+    let message = message.into_inner();
     let result = if message.only_text() {
-        qwen3.text_stream(message.into_inner()).await
+        qwen3.text_stream(&message.into()).await
     } else {
-        qwen3vl.text_stream(message.into_inner()).await
+        qwen3vl.text_stream(&message.into()).await
     };
     result
         .map(|stream| TextStream::from(stream.into_inner()))

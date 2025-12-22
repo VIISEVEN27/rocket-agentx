@@ -75,6 +75,7 @@ mod tests {
             .dispatch();
         assert_eq!(response.status(), HttpStatus::Ok);
         let mut json: Value = response.into_json().unwrap();
+        println!("{}", json);
         assert!(json["success"].as_bool().unwrap());
         let task: Task = serde_json::from_value(json["data"].take()).unwrap();
         println!("{:?}", task);

@@ -25,4 +25,5 @@ futures = "0.3.31"
 async-stream = "0.3.6"
 bytes = "1.11.0"
 quick-xml = { version = "0.38.4", features = ["serialize"] }
+async-compression = { version = "0.4.36", features = ["tokio", "zstd"] }
 agentx = { git = "https://github.com/VIISEVEN27/rs-agentx.git" }

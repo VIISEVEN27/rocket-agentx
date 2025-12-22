@@ -4,14 +4,11 @@ pub mod qwen3vl;
 pub use qwen3::Qwen3;
 pub use qwen3vl::Qwen3VL;
 
-use agentx::{Completion, ModelOptions, OpenAIModelOptions, Stream, StreamingChatModel};
+use agentx::{Completion, ModelOptions, OpenAIModelOptions, Prompt, Stream, StreamingChatModel};
 use anyhow::anyhow;
 
 use crate::{
-    entities::{
-        config::{ModelConfig, ServiceConfig},
-        message::Message,
-    },
+    entities::config::{ModelConfig, ServiceConfig},
     services::{Inject, Service},
 };
 
@@ -44,15 +41,15 @@ impl<T: Model> Inject for T {
 }
 
 impl<M: Model> Service<M> {
-    pub async fn completion(&self, message: Message) -> anyhow::Result<Completion> {
-        self.0
-            .completion(&message.into(), ModelOptions::default())
-            .await
+    pub async fn completion(&self, promt: &Prompt) -> anyhow::Result<Completion> {
+        self.0.completion(promt, ModelOptions::default()).await
     }
 
-    pub async fn text_stream(&self, message: Message) -> anyhow::Result<Stream<String>> {
-        self.0
-            .text_stream(&message.into(), ModelOptions::default())
-            .await
+    pub async fn stream(&self, promt: &Prompt) -> anyhow::Result<Stream<Completion>> {
+        self.0.stream(promt, ModelOptions::default()).await
+    }
+
+    pub async fn text_stream(&self, promt: &Prompt) -> anyhow::Result<Stream<String>> {
+        self.0.text_stream(promt, ModelOptions::default()).await
     }
 }
