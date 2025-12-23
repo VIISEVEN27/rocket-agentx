@@ -16,7 +16,7 @@ api_key = ""
 
 [default.services.executor]
 num_workers = 8
-lifetime = 30
+timeout = 30
 expiration = 86400
 
 [default.services.oss]
