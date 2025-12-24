@@ -103,14 +103,16 @@ impl Executor {
                         usage,
                     } = chunk;
                     if let Some(reasoning_content) = reasoning_content {
-                        encoder.write(reasoning_content.as_bytes()).await?;
+                        encoder
+                            .write(self.escape(&reasoning_content).as_bytes())
+                            .await?;
                     }
                     if let Some(content) = content {
                         if reasoning {
                             encoder.write("\",\"content\":\"".as_bytes()).await?;
                             reasoning = false;
                         }
-                        encoder.write(content.as_bytes()).await?;
+                        encoder.write(self.escape(&content).as_bytes()).await?;
                     }
                     if let Some(usage) = usage {
                         usage_encoded = Some(usage)
@@ -167,8 +169,8 @@ impl Executor {
         task_id: &str,
     ) -> anyhow::Result<Option<Task>> {
         if let Some(value) = conn.get::<&str, Option<Vec<u8>>>(task_id).await? {
-            let json = self.decompress(&value).await?;
-            let task = serde_json::from_str(&json)?;
+            let decompressed = self.decompress(&value).await?;
+            let task = serde_json::from_slice(&decompressed)?;
             Ok(Some(task))
         } else {
             Ok(None)
@@ -200,11 +202,14 @@ impl Executor {
         Ok(encoder.into_inner())
     }
 
-    async fn decompress(&self, data: &[u8]) -> anyhow::Result<String> {
+    async fn decompress(&self, data: &[u8]) -> anyhow::Result<Vec<u8>> {
         let mut decoder = ZstdDecoder::new(Vec::new());
         decoder.write_all(data).await?;
         decoder.shutdown().await?;
-        let decompressed = String::from_utf8_lossy(&decoder.into_inner()).to_string();
-        Ok(decompressed.replace("\n", "\\n"))
+        Ok(decoder.into_inner())
+    }
+
+    fn escape(&self, s: &str) -> String {
+        s.replace("\n", "\\n").replace("\"", "\\\"")
     }
 }
