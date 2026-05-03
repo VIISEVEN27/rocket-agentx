@@ -4,14 +4,9 @@ address = "0.0.0.0"
 [default.databases.tasks]
 url = "redis://:123456@127.0.0.1:6379/0"
 
-[default.services.models.qwen3]
-model = "qwen-turbo-latest"
-base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
-api_key = ""
-
-[default.services.models.qwen3-vl]
-model = "qwen3-vl-flash"
-base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+[default.services.models.qwen]
+model = "Qwen/Qwen3.5-122B-A10B"
+base_url = "https://api-inference.modelscope.cn/v1/chat/completions"
 api_key = ""
 
 [default.services.executor]
@@ -25,6 +20,3 @@ bucket = ""
 endpoint = "oss-cn-hangzhou.aliyuncs.com"
 access_key_id = ""
 access_key_secret = ""
-
-[release.services.oss]
-endpoint = "oss-cn-hangzhou-internal.aliyuncs.com"

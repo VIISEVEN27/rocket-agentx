@@ -2,7 +2,7 @@ use crate::databases::Tasks;
 use crate::entities::config::{ExecutorConfig, ServiceConfig};
 use crate::entities::datetime::DateTime;
 use crate::entities::task::{Status, Task};
-use crate::services::models::{Qwen3, Qwen3VL};
+use crate::services::models::Qwen;
 use crate::services::{Inject, Service};
 use agentx::Completion;
 use anyhow::anyhow;
@@ -76,13 +76,8 @@ impl Executor {
     async fn execute(&self, conn: &mut Connection<Tasks>, mut task: Task) -> anyhow::Result<()> {
         task.status = Status::Running;
         self.set(conn, &task).await?;
-        let result = if task.prompt.is_media() {
-            let model = Service::<Qwen3VL>::inject();
-            model.stream(&task.prompt).await
-        } else {
-            let model = Service::<Qwen3>::inject();
-            model.stream(&task.prompt).await
-        };
+        let model = Service::<Qwen>::inject();
+        let result = model.stream(&task.prompt).await;
         match result {
             Ok(mut stream) => {
                 task.status = Status::Finished;

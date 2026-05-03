@@ -1,8 +1,6 @@
-pub mod qwen3;
-pub mod qwen3vl;
+mod qwen;
 
-pub use qwen3::Qwen3;
-pub use qwen3vl::Qwen3VL;
+pub use qwen::Qwen;
 
 use agentx::{Completion, ModelOptions, OpenAIModelOptions, Prompt, Stream, StreamingChatModel};
 use anyhow::anyhow;
