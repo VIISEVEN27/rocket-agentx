@@ -1,4 +1,7 @@
-use std::{collections::HashMap, path::Path, pin::Pin, str::from_utf8, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap, fmt::Display, path::Path, pin::Pin, str::from_utf8, sync::Arc,
+    time::Duration,
+};
 
 use anyhow::anyhow;
 use async_stream::stream;
@@ -55,6 +58,30 @@ static MULTIPART_UPLOAD_WORKERS_NUM: usize = 3;
 
 pub type Stream<T> = Pin<Box<dyn futures::Stream<Item = T> + Send>>;
 
+pub enum ObjectProcess {
+    ImageResize {
+        width: Option<u16>,
+        height: Option<u16>,
+    },
+}
+
+impl Display for ObjectProcess {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ImageResize { width, height } => {
+                write!(f, "x-oss-process=image/resize")?;
+                if let Some(w) = width {
+                    write!(f, ",w_{}", w)?;
+                }
+                if let Some(h) = height {
+                    write!(f, ",h_{}", h)?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 struct MultipartUploadResult {
@@ -93,48 +120,75 @@ impl OSS {
     pub async fn get_object<T: AsRef<str>>(
         &self,
         name: T,
+        process: Option<ObjectProcess>,
     ) -> anyhow::Result<(Stream<Bytes>, ObjectMeta)> {
         let key = self.build_key(name)?;
         let meta = self.head_object(&key).await?;
-        let content_length = meta.content_length;
-        let self_cloned = self.clone();
+        let mut query = HashMap::new();
+        if let Some(process) = process {
+            query.insert("x-oss-process".to_owned(), process.to_string());
+        }
+        let response = self
+            .request(&key, Method::GET, query, HeaderMap::new(), Body::default())
+            .await?;
         let stream = stream! {
-            'outer: for start in (0..content_length).step_by(GET_OBJECT_RANGE_SIZE) {
-                let end = (start + GET_OBJECT_RANGE_SIZE as u64 - 1).min(content_length - 1);
-                for retry in 0..=3 {
-                    if let Ok(mut stream) = self_cloned.get_object_range(&key, (start, end)).await {
-                        loop {
-                            match stream.next().await {
-                                Some(Ok(chunk)) => yield chunk,
-                                Some(Err(_)) => break,
-                                None => continue 'outer,
-                            }
-                        }
-                    }
-                    if retry < 3 {
-                        sleep(Duration::from_secs(retry + 1)).await;
-                    } else {
-                        break 'outer;
-                    }
+            let mut bytes = response.bytes_stream();
+            while let Some(chunk) = bytes.next().await {
+                if let Ok(chunk) = chunk {
+                    yield chunk;
+                } else {
+                    break;
                 }
             }
         };
         Ok((Box::pin(stream), meta))
     }
 
-    async fn get_object_range(
-        &self,
-        key: &str,
-        range: (u64, u64),
-    ) -> anyhow::Result<Stream<Result<Bytes, reqwest::Error>>> {
-        let mut headers = HeaderMap::new();
-        let (start, end) = range;
-        headers.insert("Range", format!("bytes={}-{}", start, end).parse()?);
-        let response = self
-            .request(key, Method::GET, HashMap::new(), headers, Body::default())
-            .await?;
-        Ok(Box::pin(response.bytes_stream()))
-    }
+    // pub async fn get_object<T: AsRef<str>>(
+    //     &self,
+    //     name: T,
+    // ) -> anyhow::Result<(Stream<Bytes>, ObjectMeta)> {
+    //     let key = self.build_key(name)?;
+    //     let meta = self.head_object(&key).await?;
+    //     let content_length = meta.content_length;
+    //     let self_cloned = self.clone();
+    //     let stream = stream! {
+    //         'outer: for start in (0..content_length).step_by(GET_OBJECT_RANGE_SIZE) {
+    //             let end = (start + GET_OBJECT_RANGE_SIZE as u64 - 1).min(content_length - 1);
+    //             for retry in 0..=3 {
+    //                 if let Ok(mut stream) = self_cloned.get_object_range(&key, (start, end)).await {
+    //                     loop {
+    //                         match stream.next().await {
+    //                             Some(Ok(chunk)) => yield chunk,
+    //                             Some(Err(_)) => break,
+    //                             None => continue 'outer,
+    //                         }
+    //                     }
+    //                 }
+    //                 if retry < 3 {
+    //                     sleep(Duration::from_secs(retry + 1)).await;
+    //                 } else {
+    //                     break 'outer;
+    //                 }
+    //             }
+    //         }
+    //     };
+    //     Ok((Box::pin(stream), meta))
+    // }
+
+    // async fn get_object_range(
+    //     &self,
+    //     key: &str,
+    //     range: (u64, u64),
+    // ) -> anyhow::Result<Stream<Result<Bytes, reqwest::Error>>> {
+    //     let mut headers = HeaderMap::new();
+    //     let (start, end) = range;
+    //     headers.insert("Range", format!("bytes={}-{}", start, end).parse()?);
+    //     let response = self
+    //         .request(key, Method::GET, HashMap::new(), headers, Body::default())
+    //         .await?;
+    //     Ok(Box::pin(response.bytes_stream()))
+    // }
 
     pub async fn put_object(&self, data: Data<'_>, meta: ObjectMeta) -> anyhow::Result<String> {
         let name = format!("{}.{}", Uuid::new_v4().to_string(), meta.extension()?);
@@ -545,7 +599,7 @@ mod tests {
     async fn test_get_object() {
         let oss = build_oss();
         let (mut stream, meta) = oss
-            .get_object("Rust 程序设计语言 简体中文版.pdf")
+            .get_object("Rust 程序设计语言 简体中文版.pdf", None)
             .await
             .unwrap();
         println!("{:?}", meta);

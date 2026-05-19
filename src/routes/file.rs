@@ -1,6 +1,6 @@
 use crate::entities::oss::ObjectMeta;
 use crate::entities::response::Response;
-use crate::services::oss::OSS;
+use crate::services::oss::{ObjectProcess, OSS};
 use crate::services::Service;
 use bytes::Bytes;
 use futures::Stream;
@@ -49,12 +49,21 @@ impl<'r, S: Stream<Item = Bytes> + Send + 'r> Responder<'r, 'r> for FileResponde
     }
 }
 
-#[get("/download/<name>")]
+#[get("/download/<name>?<resize>")]
 pub async fn download(
     name: &str,
+    resize: Option<u16>,
     oss: &Service<OSS>,
 ) -> FileResponder<impl Stream<Item = Bytes> + Send> {
-    match oss.get_object(name).await {
+    let process = if resize.is_some() {
+        Some(ObjectProcess::ImageResize {
+            width: resize,
+            height: None,
+        })
+    } else {
+        None
+    };
+    match oss.get_object(name, process).await {
         Ok((stream, meta)) => FileResponder::Ok(stream, meta),
         Err(err) => {
             eprint!("Failed to download file '{}': {:?}", name, err);
