@@ -76,7 +76,7 @@ impl Display for ObjectProcess {
                 long,
                 short,
             } => {
-                write!(f, "x-oss-process=image/resize")?;
+                write!(f, "image/resize")?;
                 if let Some(w) = width {
                     write!(f, ",w_{}", w)?;
                 }
