@@ -62,19 +62,32 @@ pub enum ObjectProcess {
     ImageResize {
         width: Option<u16>,
         height: Option<u16>,
+        long: Option<u16>,
+        short: Option<u16>,
     },
 }
 
 impl Display for ObjectProcess {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ImageResize { width, height } => {
+            Self::ImageResize {
+                width,
+                height,
+                long,
+                short,
+            } => {
                 write!(f, "x-oss-process=image/resize")?;
                 if let Some(w) = width {
                     write!(f, ",w_{}", w)?;
                 }
                 if let Some(h) = height {
                     write!(f, ",h_{}", h)?;
+                }
+                if let Some(l) = long {
+                    write!(f, ",l_{}", l)?;
+                }
+                if let Some(s) = short {
+                    write!(f, ",s_{}", s)?;
                 }
                 Ok(())
             }

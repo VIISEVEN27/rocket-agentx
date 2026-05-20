@@ -57,8 +57,10 @@ pub async fn download(
 ) -> FileResponder<impl Stream<Item = Bytes> + Send> {
     let process = if resize.is_some() {
         Some(ObjectProcess::ImageResize {
-            width: resize,
+            width: None,
             height: None,
+            long: resize,
+            short: None,
         })
     } else {
         None
