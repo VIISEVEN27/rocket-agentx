@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap, fmt::Display, path::Path, pin::Pin, str::from_utf8, sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, path::Path, pin::Pin, str::from_utf8, sync::Arc, time::Duration};
 
 use anyhow::anyhow;
 use async_stream::stream;
@@ -58,43 +55,6 @@ static MULTIPART_UPLOAD_WORKERS_NUM: usize = 3;
 
 pub type Stream<T> = Pin<Box<dyn futures::Stream<Item = T> + Send>>;
 
-pub enum ObjectProcess {
-    ImageResize {
-        width: Option<u16>,
-        height: Option<u16>,
-        long: Option<u16>,
-        short: Option<u16>,
-    },
-}
-
-impl Display for ObjectProcess {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::ImageResize {
-                width,
-                height,
-                long,
-                short,
-            } => {
-                write!(f, "image/resize")?;
-                if let Some(w) = width {
-                    write!(f, ",w_{}", w)?;
-                }
-                if let Some(h) = height {
-                    write!(f, ",h_{}", h)?;
-                }
-                if let Some(l) = long {
-                    write!(f, ",l_{}", l)?;
-                }
-                if let Some(s) = short {
-                    write!(f, ",s_{}", s)?;
-                }
-                Ok(())
-            }
-        }
-    }
-}
-
 #[derive(Serialize)]
 #[serde(rename_all = "PascalCase")]
 struct MultipartUploadResult {
@@ -133,16 +93,17 @@ impl OSS {
     pub async fn get_object<T: AsRef<str>>(
         &self,
         name: T,
-        process: Option<ObjectProcess>,
     ) -> anyhow::Result<(Stream<Bytes>, ObjectMeta)> {
         let key = self.build_key(name)?;
         let meta = self.head_object(&key).await?;
-        let mut query = HashMap::new();
-        if let Some(process) = process {
-            query.insert("x-oss-process".to_owned(), process.to_string());
-        }
         let response = self
-            .request(&key, Method::GET, query, HeaderMap::new(), Body::default())
+            .request(
+                &key,
+                Method::GET,
+                HashMap::new(),
+                HeaderMap::new(),
+                Body::default(),
+            )
             .await?;
         let stream = stream! {
             let mut bytes = response.bytes_stream();
@@ -612,7 +573,7 @@ mod tests {
     async fn test_get_object() {
         let oss = build_oss();
         let (mut stream, meta) = oss
-            .get_object("Rust 程序设计语言 简体中文版.pdf", None)
+            .get_object("Rust 程序设计语言 简体中文版.pdf")
             .await
             .unwrap();
         println!("{:?}", meta);
