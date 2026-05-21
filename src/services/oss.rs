@@ -96,73 +96,45 @@ impl OSS {
     ) -> anyhow::Result<(Stream<Bytes>, ObjectMeta)> {
         let key = self.build_key(name)?;
         let meta = self.head_object(&key).await?;
-        let response = self
-            .request(
-                &key,
-                Method::GET,
-                HashMap::new(),
-                HeaderMap::new(),
-                Body::default(),
-            )
-            .await?;
+        let content_length = meta.content_length;
+        let self_cloned = self.clone();
         let stream = stream! {
-            let mut bytes = response.bytes_stream();
-            while let Some(chunk) = bytes.next().await {
-                if let Ok(chunk) = chunk {
-                    yield chunk;
-                } else {
-                    break;
+            'outer: for start in (0..content_length).step_by(GET_OBJECT_RANGE_SIZE) {
+                let end = (start + GET_OBJECT_RANGE_SIZE as u64 - 1).min(content_length - 1);
+                for retry in 0..=3 {
+                    if let Ok(mut stream) = self_cloned.get_object_range(&key, (start, end)).await {
+                        loop {
+                            match stream.next().await {
+                                Some(Ok(chunk)) => yield chunk,
+                                Some(Err(_)) => break,
+                                None => continue 'outer,
+                            }
+                        }
+                    }
+                    if retry < 3 {
+                        sleep(Duration::from_secs(retry + 1)).await;
+                    } else {
+                        break 'outer;
+                    }
                 }
             }
         };
         Ok((Box::pin(stream), meta))
     }
 
-    // pub async fn get_object<T: AsRef<str>>(
-    //     &self,
-    //     name: T,
-    // ) -> anyhow::Result<(Stream<Bytes>, ObjectMeta)> {
-    //     let key = self.build_key(name)?;
-    //     let meta = self.head_object(&key).await?;
-    //     let content_length = meta.content_length;
-    //     let self_cloned = self.clone();
-    //     let stream = stream! {
-    //         'outer: for start in (0..content_length).step_by(GET_OBJECT_RANGE_SIZE) {
-    //             let end = (start + GET_OBJECT_RANGE_SIZE as u64 - 1).min(content_length - 1);
-    //             for retry in 0..=3 {
-    //                 if let Ok(mut stream) = self_cloned.get_object_range(&key, (start, end)).await {
-    //                     loop {
-    //                         match stream.next().await {
-    //                             Some(Ok(chunk)) => yield chunk,
-    //                             Some(Err(_)) => break,
-    //                             None => continue 'outer,
-    //                         }
-    //                     }
-    //                 }
-    //                 if retry < 3 {
-    //                     sleep(Duration::from_secs(retry + 1)).await;
-    //                 } else {
-    //                     break 'outer;
-    //                 }
-    //             }
-    //         }
-    //     };
-    //     Ok((Box::pin(stream), meta))
-    // }
-
-    // async fn get_object_range(
-    //     &self,
-    //     key: &str,
-    //     range: (u64, u64),
-    // ) -> anyhow::Result<Stream<Result<Bytes, reqwest::Error>>> {
-    //     let mut headers = HeaderMap::new();
-    //     let (start, end) = range;
-    //     headers.insert("Range", format!("bytes={}-{}", start, end).parse()?);
-    //     let response = self
-    //         .request(key, Method::GET, HashMap::new(), headers, Body::default())
-    //         .await?;
-    //     Ok(Box::pin(response.bytes_stream()))
-    // }
+    async fn get_object_range(
+        &self,
+        key: &str,
+        range: (u64, u64),
+    ) -> anyhow::Result<Stream<Result<Bytes, reqwest::Error>>> {
+        let mut headers = HeaderMap::new();
+        let (start, end) = range;
+        headers.insert("Range", format!("bytes={}-{}", start, end).parse()?);
+        let response = self
+            .request(key, Method::GET, HashMap::new(), headers, Body::default())
+            .await?;
+        Ok(Box::pin(response.bytes_stream()))
+    }
 
     pub async fn put_object(&self, data: Data<'_>, meta: ObjectMeta) -> anyhow::Result<String> {
         let name = format!("{}.{}", Uuid::new_v4().to_string(), meta.extension()?);
